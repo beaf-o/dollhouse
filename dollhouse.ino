@@ -1,20 +1,22 @@
 #include <Adafruit_NeoPixel.h>
-#include <PinChangeInt.h>
 
-// For PinChangeInt - No interrupts on ports C or D
-//#define NO_PORTC_PINCHANGES
-//#define NO_PORTD_PINCHANGES
+#define LED_PIN 8
+#define ROOF_PIN_1 1
+#define ROOF_PIN_2 2
 
-#define LED_PIN 12      //D12
+#define BUTTON_EG 3
+#define BUTTON_OG 4
+#define BUTTON_DG 5
+#define BUTTON_ROOF 6
 
-#define BUTTON_0 6      //D6
-#define BUTTON_1 9      //D9
-#define BUTTON_2 10     //D10
-#define BUTTON_DOOR 1  //TX
+#define DEBOUNCE 10  // button debouncer, how many ms to debounce, 5+ ms is usually plenty
 
-#define SB_DATA 2      //SDA
-#define SB_CLK 3       //SCL
-#define SB_BUSY 0       //RX
+// here is where we define the buttons that we'll use. button "1" is the first, button "6" is the 6th, etc
+byte buttons[] = {BUTTON_EG, BUTTON_OG, BUTTON_DG, BUTTON_ROOF};
+// This handy macro lets us determine how big the array up above is, by checking the size
+#define NUMBUTTONS sizeof(buttons)
+// we will track if a button is just pressed, just released, or 'currently pressed' 
+byte pressed[NUMBUTTONS], justpressed[NUMBUTTONS], justreleased[NUMBUTTONS];
 
 // Parameter 1 = number of pixels in strip
 // Parameter 2 = Arduino pin number (most are valid)
@@ -25,18 +27,14 @@
 //   NEO_RGB     Pixels are wired for RGB bitstream (v1 FLORA pixels, not v2)
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(7, LED_PIN, NEO_GRB + NEO_KHZ800);
 
-void(*modes[]) () = { };
+int ledsDG[] = {0};
+int ledsEG[] = {1,2,3};
+int ledsOG[] = {4,5,6};
                   
-buttonPins = [6, 9, 10];
-
-ledsDG = [0];
-ledsEG = [1,2,3];
-ledsOG = [4,5,6];
-                  
-lightStatusEG = 0;
-lightStatusOG = 0;
-lightStatusDG = 0;
-statusGong = 0;
+int lightStatusEG = 0;
+int lightStatusOG = 0;
+int lightStatusDG = 0;
+int lightStatusRoof = 0;
 
 // IMPORTANT: To reduce NeoPixel burnout risk, add 1000 uF capacitor across
 // pixel power leads, add 300 - 500 Ohm resistor on first pixel's data input
@@ -44,9 +42,18 @@ statusGong = 0;
 // on a live circuit...if you must, connect GND first.
 
 void setup() {
-  foreach (buttonPins as buttonPin) {
+  byte i;
+  
+  // set up serial port
+  Serial.begin(9600);
+  Serial.print("Button checker with ");
+  Serial.print(NUMBUTTONS, DEC);
+  Serial.println(" buttons");
+  
+  for (int p = 0; p < NUMBUTTONS; p++) {
+    int buttonPin = buttonPins[p];
     pinMode(buttonPin, INPUT_PULLUP);
-    PCintPort::attachInterrupt(buttonPin, &pressHandler, FALLING);
+    //PCintPort::attachInterrupt(buttonPin, &pressHandler, FALLING);
   }
   
   strip.setBrightness(90);
@@ -55,45 +62,89 @@ void setup() {
 }
 
 void loop() {
-  shine();
-  
-//  https://learn.adafruit.com/florabrella/code
-  
-  static int mode = 0;  
-  if (changeMode != 0) {
-    //Serial.println("change");
-    mode = ((mode + 1) % numModes);
-    resetToBlack();
-    changeMode = 0;
+  //shine();
+    
+  checkSwitches();
+
+  for (byte i = 0; i < NUMBUTTONS; i++) {
+    if (justpressed[i]) {
+      Serial.print(i, DEC);
+      Serial.println(" Just pressed"); 
+      // remember, check_switches() will CLEAR the 'just pressed' flag
+    }
+    
+    if (justreleased[i]) {
+      Serial.print(i, DEC);
+      Serial.println(" Just released");
+      // remember, check_switches() will CLEAR the 'just pressed' flag
+    }
+    
+    if (pressed[i]) {
+      Serial.print(i, DEC);
+      Serial.println(" pressed");
+      // is the button pressed down at this moment
+    }
   }
-  (*modes[mode])(); // call the new mode function
-  
-  //examples();
 }
 
-void checkButtonState(buttonPin, currentState) {
-  val = digitalRead(buttonPin); // read input value and store it in val
-  delay (20);
-  val2 = digitalRead(buttonPin);
-  if (val == val2) {
-    if (val != currentState && val == LOW) { // the button state has changed!
-        if (lightMode == 0) {
-          lightMode = 1;
-        }
-      else if (lightMode == 1) {
-          lightMode = 2;
-        }
-      else if (lightMode == 2){
-          lightMode = 3;
-          //delay (20);
-        }
-      else if (lightMode == 3) {
-          lightMode = 0;
-        }
-      }
-    }
+int getStateForButton(int buttonPin) {
+  switch (buttonPin) {
+    case BUTTON_EG: 
+      return lightStatusEG;
+    case BUTTON_OG: 
+      return lightStatusOG;
+    case BUTTON_DG: 
+      return lightStatusDG;
+    case BUTTON_ROOF: 
+      return lightStatusRoof;
+  }  
+}
 
-  currentState = val; // save the new state in our variable
+void check_switches() {
+  static byte previousstate[NUMBUTTONS];
+  static byte currentstate[NUMBUTTONS];
+  static long lasttime;
+  byte index;
+
+  //if (millis() // we wrapped around, lets just try again
+  //   lasttime = millis();
+  //}
+  
+  if ((lasttime + DEBOUNCE) > millis()) {
+    // not enough time has passed to debounce
+    return; 
+  }
+  // ok we have waited DEBOUNCE milliseconds, lets reset the timer
+  lasttime = millis();
+  
+  for (index = 0; index < NUMBUTTONS; index++) { // when we start, we clear out the "just" indicators
+    justreleased[index] = 0;
+     
+    currentstate[index] = digitalRead(buttons[index]);   // read the button
+    
+    /*     
+    Serial.print(index, DEC);
+    Serial.print(": cstate=");
+    Serial.print(currentstate[index], DEC);
+    Serial.print(", pstate=");
+    Serial.print(previousstate[index], DEC);
+    Serial.print(", press=");
+    */
+    
+    if (currentstate[index] == previousstate[index]) {
+      if ((pressed[index] == LOW) && (currentstate[index] == LOW)) {
+          // just pressed
+          justpressed[index] = 1;
+      }
+      else if ((pressed[index] == HIGH) && (currentstate[index] == HIGH)) {
+          // just released
+          justreleased[index] = 1;
+      }
+      pressed[index] = !currentstate[index];  // remember, digital HIGH means NOT pressed
+    }
+    //Serial.println(pressed[index], DEC);
+    previousstate[index] = currentstate[index];   // keep a running tally of the buttons
+  }
 }
 
 void examples() {
@@ -207,13 +258,4 @@ uint32_t Wheel(byte WheelPos) {
   }
 }
 
-void pressHandler() {
-  static unsigned long lastInterruptTime = 0;
-  unsigned long interruptTime = millis();
-  // debounce
-  if (interruptTime - lastInterruptTime > 200) {
-    changeMode = 1;
-    lastInterruptTime = interruptTime;
-  }
-}
 
