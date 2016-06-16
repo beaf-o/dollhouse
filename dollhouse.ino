@@ -27,14 +27,15 @@ byte pressed[NUMBUTTONS], justpressed[NUMBUTTONS], justreleased[NUMBUTTONS];
 //   NEO_RGB     Pixels are wired for RGB bitstream (v1 FLORA pixels, not v2)
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(7, LED_PIN, NEO_GRB + NEO_KHZ800);
 
+int neopixels[] = {0, 1, 2, 3, 4, 5, 6};
 int ledsDG[] = {0};
-int ledsEG[] = {1,2,3};
-int ledsOG[] = {4,5,6};
+int ledsEG[] = {1, 2, 3};
+int ledsOG[] = {4, 5, 6};
                   
 int lightStatusEG = 0;
 int lightStatusOG = 0;
 int lightStatusDG = 0;
-int lightStatusRoof = 0;
+int lightStatusRoof = LOW;
 
 // IMPORTANT: To reduce NeoPixel burnout risk, add 1000 uF capacitor across
 // pixel power leads, add 300 - 500 Ohm resistor on first pixel's data input
@@ -51,12 +52,12 @@ void setup() {
   Serial.println(" buttons");
   
   for (int p = 0; p < NUMBUTTONS; p++) {
-    int buttonPin = buttonPins[p];
+    int buttonPin = buttons[p];
     pinMode(buttonPin, INPUT_PULLUP);
     //PCintPort::attachInterrupt(buttonPin, &pressHandler, FALLING);
   }
   
-  strip.setBrightness(90);
+  strip.setBrightness(150);
   strip.begin();
   strip.show(); // Initialize all pixels to 'off'
 }
@@ -65,26 +66,10 @@ void loop() {
   //shine();
     
   checkSwitches();
+  setLightStates();
 
-  for (byte i = 0; i < NUMBUTTONS; i++) {
-    if (justpressed[i]) {
-      Serial.print(i, DEC);
-      Serial.println(" Just pressed"); 
-      // remember, check_switches() will CLEAR the 'just pressed' flag
-    }
-    
-    if (justreleased[i]) {
-      Serial.print(i, DEC);
-      Serial.println(" Just released");
-      // remember, check_switches() will CLEAR the 'just pressed' flag
-    }
-    
-    if (pressed[i]) {
-      Serial.print(i, DEC);
-      Serial.println(" pressed");
-      // is the button pressed down at this moment
-    }
-  }
+  updateRooms();
+  updateRoof();
 }
 
 int getStateForButton(int buttonPin) {
@@ -100,7 +85,7 @@ int getStateForButton(int buttonPin) {
   }  
 }
 
-void check_switches() {
+void checkSwitches() {
   static byte previousstate[NUMBUTTONS];
   static byte currentstate[NUMBUTTONS];
   static long lasttime;
@@ -122,21 +107,18 @@ void check_switches() {
      
     currentstate[index] = digitalRead(buttons[index]);   // read the button
     
-    /*     
     Serial.print(index, DEC);
     Serial.print(": cstate=");
     Serial.print(currentstate[index], DEC);
     Serial.print(", pstate=");
     Serial.print(previousstate[index], DEC);
     Serial.print(", press=");
-    */
     
     if (currentstate[index] == previousstate[index]) {
       if ((pressed[index] == LOW) && (currentstate[index] == LOW)) {
           // just pressed
           justpressed[index] = 1;
-      }
-      else if ((pressed[index] == HIGH) && (currentstate[index] == HIGH)) {
+      } else if ((pressed[index] == HIGH) && (currentstate[index] == HIGH)) {
           // just released
           justreleased[index] = 1;
       }
@@ -145,6 +127,79 @@ void check_switches() {
     //Serial.println(pressed[index], DEC);
     previousstate[index] = currentstate[index];   // keep a running tally of the buttons
   }
+}
+
+void setLightStates() {
+  for (byte i = 0; i < NUMBUTTONS; i++) {
+    if (justpressed[i]) {
+      Serial.print(i, DEC);
+      Serial.println(" Just pressed"); 
+      // remember, check_switches() will CLEAR the 'just pressed' flag
+    }
+    
+    if (justreleased[i]) {
+      Serial.print(i, DEC);
+      Serial.println(" Just released");
+      // remember, check_switches() will CLEAR the 'just pressed' flag
+      updateLightState(i);
+    }
+    
+    if (pressed[i]) {
+      Serial.print(i, DEC);
+      Serial.println(" pressed");
+      // is the button pressed down at this moment
+    }
+  }  
+}
+
+void updateLightState(int buttonPin) {
+ switch (buttonPin) {
+    case BUTTON_EG: 
+      lightStatusEG = toggleRoomLightState(lightStatusEG);
+      break;
+    case BUTTON_OG: 
+      lightStatusOG = toggleRoomLightState(lightStatusOG);
+      break;
+    case BUTTON_DG: 
+      lightStatusDG = toggleRoomLightState(lightStatusDG);
+      break;
+    case BUTTON_ROOF: 
+      lightStatusRoof = toggleRoofLightState(lightStatusRoof);
+      break;
+  }
+}
+
+int toggleRoomLightState(int currentLightState) {
+  if (currentLightState == 0) {
+    return 255;  
+  } else {
+    return 0;
+  }  
+}
+
+int toggleRoofLightState(bool currentLightState) {
+  return (currentLightState == HIGH) ? LOW : HIGH;
+}
+
+void updateRooms() {
+  for (int l; l < sizeof(ledsEG); l++) {
+    strip.setPixelColor(l, strip.Color(lightStatusEG, lightStatusEG, lightStatusEG));
+  } 
+
+  for (int l; l < sizeof(ledsOG); l++) {
+    strip.setPixelColor(l, strip.Color(lightStatusOG, lightStatusOG, lightStatusOG));
+  } 
+
+  for (int l; l < sizeof(ledsDG); l++) {
+    strip.setPixelColor(l, strip.Color(lightStatusDG, lightStatusDG, lightStatusDG));
+  } 
+
+  strip.show();
+}
+
+void updateRoof() {
+  digitalWrite(ROOF_PIN_1, lightStatusRoof);
+  digitalWrite(ROOF_PIN_2, lightStatusRoof);
 }
 
 void examples() {
@@ -160,6 +215,14 @@ void examples() {
   rainbow(20);
   rainbowCycle(20);
   theaterChaseRainbow(50);
+}
+
+void setToBlack() {
+  for (int l; l < sizeof(neopixels); l++) {
+    strip.setPixelColor(l, strip.Color(0, 0, 0));
+  } 
+          
+  strip.show();
 }
 
 void shine() {
