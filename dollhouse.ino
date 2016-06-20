@@ -37,39 +37,42 @@ int lightStatusOG = 0;
 int lightStatusDG = 0;
 int lightStatusRoof = LOW;
 
-// IMPORTANT: To reduce NeoPixel burnout risk, add 1000 uF capacitor across
-// pixel power leads, add 300 - 500 Ohm resistor on first pixel's data input
-// and minimize distance between Arduino and first pixel.  Avoid connecting
-// on a live circuit...if you must, connect GND first.
-
 void setup() {
-  byte i;
-  
   // set up serial port
   Serial.begin(9600);
   Serial.print("Button checker with ");
   Serial.print(NUMBUTTONS, DEC);
   Serial.println(" buttons");
+
+  byte i;
+  for (byte i = 0; i < NUMBUTTONS; i++) {
+    Serial.print(i);
+  }
   
   for (int p = 0; p < NUMBUTTONS; p++) {
     int buttonPin = buttons[p];
     pinMode(buttonPin, INPUT_PULLUP);
-    //PCintPort::attachInterrupt(buttonPin, &pressHandler, FALLING);
+    Serial.print(i);
+    Serial.print(buttonPin);
+    //PCintPort::attachInterrupt(buttonPin, &pressHandler, FALLING);  
   }
   
   strip.setBrightness(150);
   strip.begin();
   strip.show(); // Initialize all pixels to 'off'
+
+  Serial.print("Setup done");
+  delay(10000);
 }
 
 void loop() {
-  //shine();
+  shine();
     
-  checkSwitches();
-  setLightStates();
+  //checkSwitches();
+  //setLightStates();
 
-  updateRooms();
-  updateRoof();
+  //updateRooms();
+  //updateRoof();
 }
 
 int getStateForButton(int buttonPin) {
