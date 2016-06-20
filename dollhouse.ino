@@ -39,27 +39,16 @@ int lightStatusRoof = LOW;
 
 void setup() {
   Serial.begin(115200);
-  Serial.print("Button checker with ");
-  Serial.print(NUMBUTTONS, DEC);
-  Serial.println(" buttons");
-
   byte i;
     
   for (int p = 0; p < NUMBUTTONS; p++) {
     int buttonPin = buttons[p];
     pinMode(buttonPin, INPUT_PULLUP);
-    Serial.print(p);
-    Serial.print(": ");
-    Serial.print(buttonPin);
-    Serial.println("");
   }
-  
+
   strip.setBrightness(150);
   strip.begin();
-  strip.show(); // Initialize all pixels to 'off'
-
-  Serial.print("Setup done");
-  delay(3000);
+  setToBlack();
 }
 
 void loop() {
@@ -67,9 +56,6 @@ void loop() {
     
   checkSwitches();
   setLightStates();
-
-  updateRooms();
-  updateRoof();
 }
 
 int getStateForButton(int buttonPin) {
@@ -86,8 +72,6 @@ int getStateForButton(int buttonPin) {
 }
 
 void checkSwitches() {
-  Serial.println("checkSwitches()");
-  
   static byte previousstate[NUMBUTTONS];
   static byte currentstate[NUMBUTTONS];
   static long lasttime;
@@ -109,12 +93,12 @@ void checkSwitches() {
      
     currentstate[index] = digitalRead(buttons[index]);   // read the button
     
-    Serial.print(index, DEC);
-    Serial.print(": cstate=");
-    Serial.print(currentstate[index], DEC);
-    Serial.print(", pstate=");
-    Serial.print(previousstate[index], DEC);
-    Serial.print(", press=");
+    //Serial.print(index, DEC);
+    //Serial.print(": cstate=");
+    //Serial.print(currentstate[index], DEC);
+    //Serial.print(", pstate=");
+    //Serial.print(previousstate[index], DEC);
+    //Serial.print(", press=");
     
     if (currentstate[index] == previousstate[index]) {
       if ((pressed[index] == LOW) && (currentstate[index] == LOW)) {
@@ -127,17 +111,14 @@ void checkSwitches() {
       pressed[index] = !currentstate[index];  // remember, digital HIGH means NOT pressed
     }
     
-    Serial.println(pressed[index], DEC);
+    //Serial.println(pressed[index], DEC);
     previousstate[index] = currentstate[index];   // keep a running tally of the buttons
   }
 
-  Serial.println("");
-  //delay(3000);
+  //Serial.println("");
 }
 
 void setLightStates() {
-  Serial.println("setLightStates()");
-  
   for (byte i = 0; i < NUMBUTTONS; i++) {
     int buttonPin = buttons[i];
     
@@ -148,45 +129,44 @@ void setLightStates() {
     }
     
     if (justreleased[i]) {
-      Serial.print(i, DEC);
-      Serial.println(" Just released");
+      //Serial.print(i, DEC);
+      //Serial.println(" Just released");
       // remember, check_switches() will CLEAR the 'just pressed' flag
       updateLightState(buttonPin);
-      delay(3000);
+      updateRooms();
+      updateRoof();
     }
     
     if (pressed[i]) {
-      Serial.print(i, DEC);
-      Serial.println(" pressed");
+      //Serial.print(i, DEC);
+      //Serial.println(" pressed");
       // is the button pressed down at this moment
     }
   }  
 }
 
 void updateLightState(int buttonPin) {
-  Serial.print("updateLightState() for buttonPin ");
+  Serial.print("Update light state for button pin: ");
   Serial.println(buttonPin);
   
- switch (buttonPin) {
+  switch (buttonPin) {
     case BUTTON_EG: 
+      Serial.print("EG before: ");
+      Serial.println(lightStatusEG);
       lightStatusEG = toggleRoomLightState(lightStatusEG);
+      Serial.print("EG after: ");
+      Serial.println(lightStatusEG);
       break;
     case BUTTON_OG: 
       lightStatusOG = toggleRoomLightState(lightStatusOG);
       break;
     case BUTTON_DG: 
-      Serial.print("Before: ");
-      Serial.println(lightStatusDG);
       lightStatusDG = toggleRoomLightState(lightStatusDG);
-      Serial.print("After: ");
-      Serial.println(lightStatusDG);
       break;
     case BUTTON_ROOF: 
       lightStatusRoof = toggleRoofLightState(lightStatusRoof);
       break;
   }
-
-  delay(3000);
 }
 
 int toggleRoomLightState(int currentLightState) {
@@ -202,28 +182,27 @@ int toggleRoofLightState(bool currentLightState) {
 }
 
 void updateRooms() {
-  Serial.println("Update rooms");
+  strip.setPixelColor(0, strip.Color(lightStatusDG, lightStatusDG, lightStatusDG));  
+  strip.setPixelColor(1, strip.Color(lightStatusOG, lightStatusOG, lightStatusOG)); 
+  strip.setPixelColor(2, strip.Color(lightStatusOG, lightStatusOG, lightStatusOG)); 
+  strip.setPixelColor(3, strip.Color(lightStatusOG, lightStatusOG, lightStatusOG)); 
+  strip.setPixelColor(4, strip.Color(lightStatusEG, lightStatusEG, lightStatusEG));
+  strip.setPixelColor(5, strip.Color(lightStatusEG, lightStatusEG, lightStatusEG)); 
+  strip.setPixelColor(6, strip.Color(lightStatusEG, lightStatusEG, lightStatusEG));
   
-  for (int l; l < sizeof(ledsEG); l++) {
-    strip.setPixelColor(ledsEG[l], strip.Color(lightStatusEG, lightStatusEG, lightStatusEG));
-  } 
-
-  for (int l; l < sizeof(ledsOG); l++) {
-    strip.setPixelColor(ledsOG[l], strip.Color(lightStatusOG, lightStatusOG, lightStatusOG));
-  } 
-
-  for (int l; l < sizeof(ledsDG); l++) {
-    strip.setPixelColor(ledsDG[l], strip.Color(lightStatusDG, lightStatusDG, lightStatusDG));
-  } 
-
-  Serial.println("updateRooms()");
+  //Serial.println("updateRooms()");
   //delay(3000);
   strip.show();
 }
 
 void updateRoof() {
-  digitalWrite(ROOF_PIN_1, lightStatusRoof);
-  digitalWrite(ROOF_PIN_2, lightStatusRoof);
+  if (lightStatusRoof == 1) {
+    rainbowCycle(20);
+    lightStatusRoof = 0;
+    updateRooms();
+  }
+  //digitalWrite(ROOF_PIN_1, lightStatusRoof);
+  //digitalWrite(ROOF_PIN_2, lightStatusRoof);
 }
 
 void examples() {
@@ -243,10 +222,13 @@ void examples() {
 
 void setToBlack() {
   for (int l; l < sizeof(neopixels); l++) {
-    strip.setPixelColor(l, strip.Color(0, 0, 0));
+    strip.setPixelColor(neopixels[l], strip.Color(0, 0, 0));
   } 
           
   strip.show();
+
+  digitalWrite(ROOF_PIN_1, LOW);
+  digitalWrite(ROOF_PIN_2, LOW);
 }
 
 void shine() {
