@@ -38,23 +38,20 @@ int lightStatusDG = 0;
 int lightStatusRoof = LOW;
 
 void setup() {
-  // set up serial port
-  Serial.begin(9600);
+  Serial.begin(115200);
   Serial.print("Button checker with ");
   Serial.print(NUMBUTTONS, DEC);
   Serial.println(" buttons");
 
   byte i;
-  for (byte i = 0; i < NUMBUTTONS; i++) {
-    Serial.print(i);
-  }
-  
+    
   for (int p = 0; p < NUMBUTTONS; p++) {
     int buttonPin = buttons[p];
     pinMode(buttonPin, INPUT_PULLUP);
-    Serial.print(i);
+    Serial.print(p);
+    Serial.print(": ");
     Serial.print(buttonPin);
-    //PCintPort::attachInterrupt(buttonPin, &pressHandler, FALLING);  
+    Serial.println("");
   }
   
   strip.setBrightness(150);
@@ -62,17 +59,17 @@ void setup() {
   strip.show(); // Initialize all pixels to 'off'
 
   Serial.print("Setup done");
-  delay(10000);
+  delay(3000);
 }
 
 void loop() {
-  shine();
+  //shine();
     
-  //checkSwitches();
-  //setLightStates();
+  checkSwitches();
+  setLightStates();
 
-  //updateRooms();
-  //updateRoof();
+  updateRooms();
+  updateRoof();
 }
 
 int getStateForButton(int buttonPin) {
@@ -89,6 +86,8 @@ int getStateForButton(int buttonPin) {
 }
 
 void checkSwitches() {
+  Serial.println("checkSwitches()");
+  
   static byte previousstate[NUMBUTTONS];
   static byte currentstate[NUMBUTTONS];
   static long lasttime;
@@ -127,16 +126,24 @@ void checkSwitches() {
       }
       pressed[index] = !currentstate[index];  // remember, digital HIGH means NOT pressed
     }
-    //Serial.println(pressed[index], DEC);
+    
+    Serial.println(pressed[index], DEC);
     previousstate[index] = currentstate[index];   // keep a running tally of the buttons
   }
+
+  Serial.println("");
+  //delay(3000);
 }
 
 void setLightStates() {
+  Serial.println("setLightStates()");
+  
   for (byte i = 0; i < NUMBUTTONS; i++) {
+    int buttonPin = buttons[i];
+    
     if (justpressed[i]) {
-      Serial.print(i, DEC);
-      Serial.println(" Just pressed"); 
+      //Serial.print(i, DEC);
+      //Serial.println(" Just pressed"); 
       // remember, check_switches() will CLEAR the 'just pressed' flag
     }
     
@@ -144,7 +151,8 @@ void setLightStates() {
       Serial.print(i, DEC);
       Serial.println(" Just released");
       // remember, check_switches() will CLEAR the 'just pressed' flag
-      updateLightState(i);
+      updateLightState(buttonPin);
+      delay(3000);
     }
     
     if (pressed[i]) {
@@ -156,6 +164,9 @@ void setLightStates() {
 }
 
 void updateLightState(int buttonPin) {
+  Serial.print("updateLightState() for buttonPin ");
+  Serial.println(buttonPin);
+  
  switch (buttonPin) {
     case BUTTON_EG: 
       lightStatusEG = toggleRoomLightState(lightStatusEG);
@@ -164,12 +175,18 @@ void updateLightState(int buttonPin) {
       lightStatusOG = toggleRoomLightState(lightStatusOG);
       break;
     case BUTTON_DG: 
+      Serial.print("Before: ");
+      Serial.println(lightStatusDG);
       lightStatusDG = toggleRoomLightState(lightStatusDG);
+      Serial.print("After: ");
+      Serial.println(lightStatusDG);
       break;
     case BUTTON_ROOF: 
       lightStatusRoof = toggleRoofLightState(lightStatusRoof);
       break;
   }
+
+  delay(3000);
 }
 
 int toggleRoomLightState(int currentLightState) {
@@ -185,18 +202,22 @@ int toggleRoofLightState(bool currentLightState) {
 }
 
 void updateRooms() {
+  Serial.println("Update rooms");
+  
   for (int l; l < sizeof(ledsEG); l++) {
-    strip.setPixelColor(l, strip.Color(lightStatusEG, lightStatusEG, lightStatusEG));
+    strip.setPixelColor(ledsEG[l], strip.Color(lightStatusEG, lightStatusEG, lightStatusEG));
   } 
 
   for (int l; l < sizeof(ledsOG); l++) {
-    strip.setPixelColor(l, strip.Color(lightStatusOG, lightStatusOG, lightStatusOG));
+    strip.setPixelColor(ledsOG[l], strip.Color(lightStatusOG, lightStatusOG, lightStatusOG));
   } 
 
   for (int l; l < sizeof(ledsDG); l++) {
-    strip.setPixelColor(l, strip.Color(lightStatusDG, lightStatusDG, lightStatusDG));
+    strip.setPixelColor(ledsDG[l], strip.Color(lightStatusDG, lightStatusDG, lightStatusDG));
   } 
 
+  Serial.println("updateRooms()");
+  //delay(3000);
   strip.show();
 }
 
