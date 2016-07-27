@@ -1,8 +1,8 @@
 #include <Adafruit_NeoPixel.h>
 
 #define LED_PIN 8
-#define ROOF_PIN_1 1
-#define ROOF_PIN_2 2
+#define ROOF_PIN_1 9
+#define ROOF_PIN_2 10
 
 #define BUTTON_EG 3
 #define BUTTON_OG 4
@@ -46,7 +46,7 @@ void setup() {
     pinMode(buttonPin, INPUT_PULLUP);
   }
 
-  strip.setBrightness(150);
+  strip.setBrightness(200);
   strip.begin();
   setToBlack();
 }
@@ -196,13 +196,17 @@ void updateRooms() {
 }
 
 void updateRoof() {
+  /**
   if (lightStatusRoof == 1) {
     rainbowCycle(20);
     lightStatusRoof = 0;
     updateRooms();
   }
-  //digitalWrite(ROOF_PIN_1, lightStatusRoof);
-  //digitalWrite(ROOF_PIN_2, lightStatusRoof);
+  */
+
+  Serial.println(lightStatusRoof);
+  digitalWrite(ROOF_PIN_1, lightStatusRoof);
+  digitalWrite(ROOF_PIN_2, lightStatusRoof);
 }
 
 void examples() {
